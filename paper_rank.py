@@ -3,7 +3,6 @@ import requests
 from bs4 import BeautifulSoup
 import argparse
 
-
 def fetch_recent_dates_from_arxiv(field):
     # Target URL
     url = f"https://arxiv.org/list/cs.{field}/recent"
@@ -14,26 +13,26 @@ def fetch_recent_dates_from_arxiv(field):
     # Parse webpage content
     soup = BeautifulSoup(response.content, 'html.parser')
     
-    # Find all <li> elements containing dates
+    # Find all <li> elements containing links with specific path structure
     dates_list = soup.find_all('li')
     recent_dates = []
-    for date in dates_list:
-        date_text = date.get_text(strip=True)
-        if date_text and date_text not in recent_dates:  # Avoid duplicates
-            recent_dates.append(date_text)
-            if len(recent_dates) == 5:  # Only need the first five unique dates
-                break
+    for li in dates_list:
+        link = li.find('a')
+        if link and '/list/cs.' + field + '/recent' in link.get('href'):
+            date_text = link.get_text(strip=True)
+            if date_text and date_text not in recent_dates:  # Avoid duplicates
+                recent_dates.append(date_text)
+                if len(recent_dates) == 5:  # Only need the first five unique dates
+                    break
 
     # Convert date text to datetime objects for later use
     recent_dates = [datetime.strptime(date, '%a, %d %b %Y') for date in recent_dates[:5]]
     return recent_dates
 
-
 def build_urls(dates, field):
     base_url = f"https://papers.cool/arxiv/cs.{field}?date="
     urls = [base_url + date.strftime('%Y-%m-%d') + "&show=200" for date in dates]
     return urls
-
 
 def fetch_and_sort_papers(url):
     response = requests.get(url)
@@ -52,9 +51,7 @@ def fetch_and_sort_papers(url):
     sorted_papers = sorted(papers_info, key=lambda x: x[1], reverse=True)
     return sorted_papers[:10]
 
-
 def main(field):
-    # Use the new function to fetch dates
     recent_dates = fetch_recent_dates_from_arxiv(field)
     urls = build_urls(recent_dates, field)
 
@@ -65,7 +62,6 @@ def main(field):
         for title, num in top_papers:
             print(num, title)
         print("\n" + "-"*50 + "\n")
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser("Choose the field you want to rank the papers, currently support CL, LG, AI, CV on Arxiv")
